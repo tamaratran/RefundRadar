@@ -37,6 +37,12 @@
           }
         }
       ]
-    ]
+    ],
+    "owner": "refundradars-organization",
+    "extra": {
+      "eas": {
+        "projectId": "c5f55101-7b9c-449d-8360-a94665dc82c7"
+      }
+    }
   }
 }
