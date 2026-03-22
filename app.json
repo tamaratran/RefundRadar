@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "RefundRadar",
-    "slug": "RefundRadar",
+    "slug": "refundradar",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
