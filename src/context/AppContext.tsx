@@ -1,180 +1,204 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Purchase, RefundClaim, PriceAlert, PurchaseCategory, getToday } from '../data/models';
-import { samplePurchases } from '../data/purchases';
-import { sampleAlerts } from '../data/alerts';
+import { Expense, BudgetGoal, StreakData, ExpenseCategory, DEFAULT_BUDGET, getToday, getWeekStart, getMonthKey } from '../data/models';
 
 interface AppState {
   hasCompletedOnboarding: boolean;
   setHasCompletedOnboarding: (v: boolean) => void;
 
-  // Purchases
-  purchases: Purchase[];
-  addPurchase: (purchase: Purchase) => void;
-  deletePurchase: (id: string) => void;
-  getPurchasesWithDrops: () => Purchase[];
-  totalSavingsAvailable: () => number;
-  totalSavingsClaimed: () => number;
+  // Expenses
+  expenses: Expense[];
+  addExpense: (expense: Expense) => void;
+  deleteExpense: (id: string) => void;
+  editExpense: (id: string, updates: Partial<Omit<Expense, 'id' | 'createdAt'>>) => void;
 
-  // Claims
-  claims: RefundClaim[];
-  addClaim: (claim: RefundClaim) => void;
-  updateClaimStatus: (id: string, status: RefundClaim['status']) => void;
-  getClaimsForPurchase: (purchaseId: string) => RefundClaim[];
+  // Budget
+  budget: BudgetGoal;
+  setBudget: (budget: BudgetGoal) => void;
 
-  // Alerts
-  alerts: PriceAlert[];
-  markAlertRead: (id: string) => void;
-  unreadAlertCount: () => number;
+  // Streak
+  streak: StreakData;
 
-  // Stats
-  appStreak: number;
-  totalRefunded: number;
+  // Computed
+  getTodayTotal: () => number;
+  getWeekTotal: () => number;
+  getMonthTotal: () => number;
+  getExpensesByCategory: () => Record<ExpenseCategory, number>;
+  getExpensesForDate: (date: string) => Expense[];
+  getDailyTotals: (days: string[]) => number[];
 }
 
 const AppContext = createContext<AppState>({} as AppState);
 
+const STORAGE_KEYS = {
+  onboarding: 'bt_onboarding',
+  expenses: 'bt_expenses',
+  budget: 'bt_budget',
+  streak: 'bt_streak',
+};
+
 export function AppProvider({ children }: { children: ReactNode }) {
   const [hasCompletedOnboarding, setOnboarding] = useState(false);
-  const [purchases, setPurchases] = useState<Purchase[]>([]);
-  const [claims, setClaims] = useState<RefundClaim[]>([]);
-  const [alerts, setAlerts] = useState<PriceAlert[]>([]);
-  const [appStreak, setAppStreak] = useState(1);
-  const [totalRefunded, setTotalRefunded] = useState(0);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [budget, setBudgetState] = useState<BudgetGoal>(DEFAULT_BUDGET);
+  const [streak, setStreak] = useState<StreakData>({ count: 0, lastDate: '', bestStreak: 0 });
   const [loaded, setLoaded] = useState(false);
 
   // Load persisted state
   useEffect(() => {
     (async () => {
       try {
-        const [onb, purchasesData, claimsData, alertsData, streakData, refundedData] = await Promise.all([
-          AsyncStorage.getItem('rr_onboarding'),
-          AsyncStorage.getItem('rr_purchases'),
-          AsyncStorage.getItem('rr_claims'),
-          AsyncStorage.getItem('rr_alerts'),
-          AsyncStorage.getItem('rr_app_streak'),
-          AsyncStorage.getItem('rr_total_refunded'),
+        const [onb, expData, budgetData, streakData] = await Promise.all([
+          AsyncStorage.getItem(STORAGE_KEYS.onboarding),
+          AsyncStorage.getItem(STORAGE_KEYS.expenses),
+          AsyncStorage.getItem(STORAGE_KEYS.budget),
+          AsyncStorage.getItem(STORAGE_KEYS.streak),
         ]);
-        if (onb === 'true') {
-          setOnboarding(true);
-          // Load saved data
-          if (purchasesData) setPurchases(JSON.parse(purchasesData));
-          else setPurchases(samplePurchases); // Default sample data
-          if (claimsData) setClaims(JSON.parse(claimsData));
-          if (alertsData) setAlerts(JSON.parse(alertsData));
-          else setAlerts(sampleAlerts);
-          if (refundedData) setTotalRefunded(JSON.parse(refundedData));
-        }
+
+        if (onb === 'true') setOnboarding(true);
+        if (expData) setExpenses(JSON.parse(expData));
+        if (budgetData) setBudgetState(JSON.parse(budgetData));
+
+        // Update streak
         if (streakData) {
-          const s = JSON.parse(streakData);
+          const s: StreakData = JSON.parse(streakData);
           const today = getToday();
           const yesterday = (() => {
             const d = new Date();
             d.setDate(d.getDate() - 1);
             return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           })();
+
           if (s.lastDate === today) {
-            setAppStreak(s.count);
+            setStreak(s);
           } else if (s.lastDate === yesterday) {
-            setAppStreak(s.count + 1);
-            AsyncStorage.setItem('rr_app_streak', JSON.stringify({ count: s.count + 1, lastDate: today }));
+            // Check if yesterday was under budget
+            const parsedExpenses: Expense[] = expData ? JSON.parse(expData) : [];
+            const parsedBudget: BudgetGoal = budgetData ? JSON.parse(budgetData) : DEFAULT_BUDGET;
+            const yesterdayTotal = parsedExpenses
+              .filter(e => e.date === yesterday)
+              .reduce((sum, e) => sum + e.amount, 0);
+
+            if (yesterdayTotal <= parsedBudget.daily) {
+              const newCount = s.count + 1;
+              const newStreak: StreakData = {
+                count: newCount,
+                lastDate: today,
+                bestStreak: Math.max(s.bestStreak, newCount),
+              };
+              setStreak(newStreak);
+              AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(newStreak));
+            } else {
+              const reset: StreakData = { count: 0, lastDate: today, bestStreak: s.bestStreak };
+              setStreak(reset);
+              AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(reset));
+            }
           } else {
-            setAppStreak(1);
-            AsyncStorage.setItem('rr_app_streak', JSON.stringify({ count: 1, lastDate: today }));
+            const reset: StreakData = { count: 0, lastDate: today, bestStreak: s.bestStreak };
+            setStreak(reset);
+            AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(reset));
           }
-        } else {
-          AsyncStorage.setItem('rr_app_streak', JSON.stringify({ count: 1, lastDate: getToday() }));
         }
-      } catch {}
+      } catch (e) {
+        console.error('Failed to load state:', e);
+      }
       setLoaded(true);
     })();
   }, []);
 
   const setHasCompletedOnboarding = useCallback((v: boolean) => {
     setOnboarding(v);
-    AsyncStorage.setItem('rr_onboarding', v ? 'true' : 'false');
-    if (v) {
-      // Load sample data on first launch
-      setPurchases(samplePurchases);
-      setAlerts(sampleAlerts);
-      AsyncStorage.setItem('rr_purchases', JSON.stringify(samplePurchases));
-      AsyncStorage.setItem('rr_alerts', JSON.stringify(sampleAlerts));
-    }
+    AsyncStorage.setItem(STORAGE_KEYS.onboarding, v ? 'true' : 'false');
   }, []);
 
-  const addPurchase = useCallback((purchase: Purchase) => {
-    setPurchases(prev => {
-      const next = [purchase, ...prev];
-      AsyncStorage.setItem('rr_purchases', JSON.stringify(next));
-      return next;
-    });
-  }, []);
+  const addExpense = useCallback((expense: Expense) => {
+    setExpenses(prev => {
+      const next = [expense, ...prev];
+      AsyncStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(next));
 
-  const deletePurchase = useCallback((id: string) => {
-    setPurchases(prev => {
-      const next = prev.filter(p => p.id !== id);
-      AsyncStorage.setItem('rr_purchases', JSON.stringify(next));
-      return next;
-    });
-  }, []);
+      // Update streak - check if today is under budget
+      const today = getToday();
+      const todayTotal = next
+        .filter(e => e.date === today)
+        .reduce((sum, e) => sum + e.amount, 0);
 
-  const getPurchasesWithDrops = useCallback(() => {
-    return purchases.filter(p => p.priceDropDetected && p.savingsAmount > 0);
-  }, [purchases]);
-
-  const totalSavingsAvailable = useCallback(() => {
-    return purchases
-      .filter(p => p.priceDropDetected)
-      .reduce((sum, p) => sum + p.savingsAmount, 0);
-  }, [purchases]);
-
-  const totalSavingsClaimed = useCallback(() => {
-    return claims
-      .filter(c => c.status === 'approved' || c.status === 'paid')
-      .reduce((sum, c) => sum + c.refundAmount, 0);
-  }, [claims]);
-
-  const addClaim = useCallback((claim: RefundClaim) => {
-    setClaims(prev => {
-      const next = [claim, ...prev];
-      AsyncStorage.setItem('rr_claims', JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  const updateClaimStatus = useCallback((id: string, status: RefundClaim['status']) => {
-    setClaims(prev => {
-      const next = prev.map(c => c.id === id ? { ...c, status, resolvedDate: status === 'approved' || status === 'denied' || status === 'paid' ? getToday() : c.resolvedDate } : c);
-      AsyncStorage.setItem('rr_claims', JSON.stringify(next));
-      if (status === 'paid') {
-        const claim = next.find(c => c.id === id);
-        if (claim) {
-          setTotalRefunded(prev => {
-            const newTotal = prev + claim.refundAmount;
-            AsyncStorage.setItem('rr_total_refunded', JSON.stringify(newTotal));
-            return newTotal;
-          });
+      setStreak(prevStreak => {
+        if (todayTotal <= budget.daily && prevStreak.lastDate !== today) {
+          const newCount = prevStreak.count + 1;
+          const newStreak: StreakData = {
+            count: newCount,
+            lastDate: today,
+            bestStreak: Math.max(prevStreak.bestStreak, newCount),
+          };
+          AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(newStreak));
+          return newStreak;
         }
-      }
+        if (todayTotal > budget.daily) {
+          const reset: StreakData = { count: 0, lastDate: today, bestStreak: prevStreak.bestStreak };
+          AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(reset));
+          return reset;
+        }
+        return prevStreak;
+      });
+
+      return next;
+    });
+  }, [budget.daily]);
+
+  const deleteExpense = useCallback((id: string) => {
+    setExpenses(prev => {
+      const next = prev.filter(e => e.id !== id);
+      AsyncStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(next));
       return next;
     });
   }, []);
 
-  const getClaimsForPurchase = useCallback((purchaseId: string) => {
-    return claims.filter(c => c.purchaseId === purchaseId);
-  }, [claims]);
-
-  const markAlertRead = useCallback((id: string) => {
-    setAlerts(prev => {
-      const next = prev.map(a => a.id === id ? { ...a, isRead: true } : a);
-      AsyncStorage.setItem('rr_alerts', JSON.stringify(next));
+  const editExpense = useCallback((id: string, updates: Partial<Omit<Expense, 'id' | 'createdAt'>>) => {
+    setExpenses(prev => {
+      const next = prev.map(e => e.id === id ? { ...e, ...updates } : e);
+      AsyncStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(next));
       return next;
     });
   }, []);
 
-  const unreadAlertCount = useCallback(() => {
-    return alerts.filter(a => !a.isRead).length;
-  }, [alerts]);
+  const setBudget = useCallback((newBudget: BudgetGoal) => {
+    setBudgetState(newBudget);
+    AsyncStorage.setItem(STORAGE_KEYS.budget, JSON.stringify(newBudget));
+  }, []);
+
+  const getTodayTotal = useCallback(() => {
+    const today = getToday();
+    return expenses.filter(e => e.date === today).reduce((sum, e) => sum + e.amount, 0);
+  }, [expenses]);
+
+  const getWeekTotal = useCallback(() => {
+    const weekStart = getWeekStart();
+    return expenses.filter(e => e.date >= weekStart).reduce((sum, e) => sum + e.amount, 0);
+  }, [expenses]);
+
+  const getMonthTotal = useCallback(() => {
+    const monthKey = getMonthKey();
+    return expenses.filter(e => e.date.startsWith(monthKey)).reduce((sum, e) => sum + e.amount, 0);
+  }, [expenses]);
+
+  const getExpensesByCategory = useCallback(() => {
+    const result: Record<string, number> = {};
+    const monthKey = getMonthKey();
+    expenses
+      .filter(e => e.date.startsWith(monthKey))
+      .forEach(e => {
+        result[e.category] = (result[e.category] || 0) + e.amount;
+      });
+    return result as Record<ExpenseCategory, number>;
+  }, [expenses]);
+
+  const getExpensesForDate = useCallback((date: string) => {
+    return expenses.filter(e => e.date === date);
+  }, [expenses]);
+
+  const getDailyTotals = useCallback((days: string[]) => {
+    return days.map(day => expenses.filter(e => e.date === day).reduce((sum, e) => sum + e.amount, 0));
+  }, [expenses]);
 
   if (!loaded) return null;
 
@@ -183,21 +207,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         hasCompletedOnboarding,
         setHasCompletedOnboarding,
-        purchases,
-        addPurchase,
-        deletePurchase,
-        getPurchasesWithDrops,
-        totalSavingsAvailable,
-        totalSavingsClaimed,
-        claims,
-        addClaim,
-        updateClaimStatus,
-        getClaimsForPurchase,
-        alerts,
-        markAlertRead,
-        unreadAlertCount,
-        appStreak,
-        totalRefunded,
+        expenses,
+        addExpense,
+        deleteExpense,
+        editExpense,
+        budget,
+        setBudget,
+        streak,
+        getTodayTotal,
+        getWeekTotal,
+        getMonthTotal,
+        getExpensesByCategory,
+        getExpensesForDate,
+        getDailyTotals,
       }}
     >
       {children}

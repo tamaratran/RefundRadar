@@ -2,7 +2,8 @@
   "expo": {
     "name": "RefundRadar",
     "slug": "refundradar",
-    "version": "1.0.0",
+    "version": "2.0.0",
+    "description": "Track your spending, set budget goals, and build streaks to stay on track with your finances.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
