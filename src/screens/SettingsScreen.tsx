@@ -56,7 +56,7 @@ export default function SettingsScreen() {
   };
 
   const handleUpgradePro = async () => {
-    if (Platform.OS === 'web') {
+    if (Platform.OS !== 'ios') {
       Alert.alert('Pro', 'In-app purchases are only available on iOS.');
       return;
     }
