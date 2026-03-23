@@ -5,9 +5,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { Colors } from '../theme/colors';
 import { formatCurrency } from '../data/models';
+import { usePaywall } from '../hooks/useSuperwall';
+import { PLACEMENTS } from '../config/superwall';
 
 export default function SettingsScreen() {
   const { budget, setBudget, expenses, streak } = useApp();
+  const { triggerPaywall } = usePaywall();
   const [editingBudget, setEditingBudget] = useState(false);
   const [daily, setDaily] = useState(budget.daily.toString());
   const [weekly, setWeekly] = useState(budget.weekly.toString());
@@ -170,6 +173,15 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Upgrade to Pro */}
+      <TouchableOpacity
+        style={styles.proBtn}
+        onPress={() => triggerPaywall(PLACEMENTS.unlockPro)}
+      >
+        <Ionicons name="star" size={20} color={Colors.white} />
+        <Text style={styles.proBtnText}>Upgrade to Pro</Text>
+      </TouchableOpacity>
+
       {/* App Info */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>About</Text>
@@ -225,4 +237,7 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
   infoLabel: { fontSize: 14, color: Colors.subText },
   infoValue: { fontSize: 14, color: Colors.darkText },
+
+  proBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: Colors.primary, borderRadius: 14, padding: 16, marginBottom: 16 },
+  proBtnText: { fontSize: 16, fontWeight: '700', color: Colors.white },
 });

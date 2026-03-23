@@ -46,7 +46,8 @@
     "extra": {
       "eas": {
         "projectId": "c5f55101-7b9c-449d-8360-a94665dc82c7"
-      }
+      },
+      "superwallApiKey": "pk_998f871166b40ce898061ef60ab66eefa11e9c2b0d5c42ca"
     }
   }
 }
