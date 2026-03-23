@@ -111,19 +111,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEYS.onboarding, v ? 'true' : 'false');
   }, []);
 
-  const addExpense = useCallback((expense: Expense) => {
-    setExpenses(prev => {
-      const next = [expense, ...prev];
-      AsyncStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(next));
+  // Shared streak recalculation based on current expense list
+  const recalculateStreak = useCallback((expenseList: Expense[]) => {
+    const today = getToday();
+    const todayTotal = expenseList
+      .filter(e => e.date === today)
+      .reduce((sum, e) => sum + e.amount, 0);
 
-      // Update streak - check if today is under budget
-      const today = getToday();
-      const todayTotal = next
-        .filter(e => e.date === today)
-        .reduce((sum, e) => sum + e.amount, 0);
-
-      setStreak(prevStreak => {
-        if (todayTotal <= budget.daily && prevStreak.lastDate !== today) {
+    setStreak(prevStreak => {
+      if (todayTotal <= budget.daily) {
+        // Under budget today
+        if (prevStreak.lastDate !== today) {
+          // First time checking today — increment streak
           const newCount = prevStreak.count + 1;
           const newStreak: StreakData = {
             count: newCount,
@@ -133,33 +132,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
           AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(newStreak));
           return newStreak;
         }
-        if (todayTotal > budget.daily) {
-          const reset: StreakData = { count: 0, lastDate: today, bestStreak: prevStreak.bestStreak };
-          AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(reset));
-          return reset;
+        // Already checked today and was under — keep current streak
+        // But if it was previously reset today, restore it
+        if (prevStreak.count === 0 && prevStreak.lastDate === today) {
+          const newStreak: StreakData = {
+            count: 1,
+            lastDate: today,
+            bestStreak: Math.max(prevStreak.bestStreak, 1),
+          };
+          AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(newStreak));
+          return newStreak;
         }
         return prevStreak;
-      });
-
-      return next;
+      }
+      // Over budget today
+      const reset: StreakData = { count: 0, lastDate: today, bestStreak: prevStreak.bestStreak };
+      AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(reset));
+      return reset;
     });
   }, [budget.daily]);
+
+  const addExpense = useCallback((expense: Expense) => {
+    setExpenses(prev => {
+      const next = [expense, ...prev];
+      AsyncStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(next));
+      recalculateStreak(next);
+      return next;
+    });
+  }, [recalculateStreak]);
 
   const deleteExpense = useCallback((id: string) => {
     setExpenses(prev => {
       const next = prev.filter(e => e.id !== id);
       AsyncStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(next));
+      recalculateStreak(next);
       return next;
     });
-  }, []);
+  }, [recalculateStreak]);
 
   const editExpense = useCallback((id: string, updates: Partial<Omit<Expense, 'id' | 'createdAt'>>) => {
     setExpenses(prev => {
       const next = prev.map(e => e.id === id ? { ...e, ...updates } : e);
       AsyncStorage.setItem(STORAGE_KEYS.expenses, JSON.stringify(next));
+      recalculateStreak(next);
       return next;
     });
-  }, []);
+  }, [recalculateStreak]);
 
   const setBudget = useCallback((newBudget: BudgetGoal) => {
     setBudgetState(newBudget);

@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { Colors } from '../theme/colors';
-import { CATEGORY_META, ExpenseCategory, formatCurrency, getLast7Days, getShortDayLabel, getDateString } from '../data/models';
+import { CATEGORY_META, ExpenseCategory, formatCurrency, getLast7Days, getShortDayLabel, getDateString, getMonthKey } from '../data/models';
 
 type TimePeriod = '7d' | '30d' | 'all';
 
@@ -75,6 +75,12 @@ export default function InsightsScreen() {
   const maxWeekly = Math.max(...weeklyTotals.map(w => w.total), 1);
 
   const expenseCount = filteredExpenses.length;
+
+  // Actual current month total (independent of period selector)
+  const monthlySpent = useMemo(() => {
+    const monthKey = getMonthKey();
+    return expenses.filter(e => e.date.startsWith(monthKey)).reduce((s, e) => s + e.amount, 0);
+  }, [expenses]);
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -202,7 +208,7 @@ export default function InsightsScreen() {
         {[
           { label: 'Daily', spent: dailyTotals[dailyTotals.length - 1], limit: budget.daily },
           { label: 'Weekly', spent: weeklyTotals[weeklyTotals.length - 1]?.total || 0, limit: budget.weekly },
-          { label: 'Monthly', spent: totalSpent, limit: budget.monthly },
+          { label: 'Monthly', spent: monthlySpent, limit: budget.monthly },
         ].map(item => {
           const pct = item.limit > 0 ? Math.min((item.spent / item.limit) * 100, 100) : 0;
           const over = item.spent > item.limit;
