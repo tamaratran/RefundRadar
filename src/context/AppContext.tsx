@@ -144,6 +144,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(newStreak));
           return newStreak;
         }
+        // Reset today (gap or yesterday over-budget) with no preResetCount — start fresh streak at 1
+        if (prevStreak.count === 0 && prevStreak.lastDate === today) {
+          const newStreak: StreakData = { count: 1, lastDate: today, bestStreak: Math.max(prevStreak.bestStreak, 1) };
+          AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(newStreak));
+          return newStreak;
+        }
         return prevStreak;
       }
       // Over budget today — reset but preserve current count for possible restoration
