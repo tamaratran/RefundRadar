@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.refundradar.ios",
-      "buildNumber": "4",
+      "buildNumber": "6",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -47,7 +47,7 @@
       "eas": {
         "projectId": "c5f55101-7b9c-449d-8360-a94665dc82c7"
       },
-      "superwallApiKey": "pk_998f871166b40ce898061ef60ab66eefa11e9c2b0d5c42ca"
+      "superwallApiKey": "pk_5e074e74d91b5cf759b2d610dea394fbda47e32f1fa36d62"
     }
   }
 }

@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useApp } from '../context/AppContext';
 import { Colors } from '../theme/colors';
 import { formatCurrency } from '../data/models';
+import { PLACEMENTS } from '../config/superwall';
 
 export default function SettingsScreen() {
   const { budget, setBudget, expenses, streak } = useApp();
@@ -52,6 +53,19 @@ export default function SettingsScreen() {
         },
       ]
     );
+  };
+
+  const handleUpgradePro = async () => {
+    if (Platform.OS === 'web') {
+      Alert.alert('Pro', 'In-app purchases are only available on iOS.');
+      return;
+    }
+    try {
+      const SuperwallExpoModule = require('expo-superwall').default;
+      await SuperwallExpoModule.registerPlacement(PLACEMENTS.unlockPro);
+    } catch (e) {
+      // Superwall not available or dismissed
+    }
   };
 
   const totalExpenses = expenses.length;
@@ -170,6 +184,18 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+      {/* Upgrade to Pro */}
+      <TouchableOpacity style={styles.proCard} onPress={handleUpgradePro}>
+        <View style={styles.proContent}>
+          <Ionicons name="star" size={22} color="#FFD700" />
+          <View style={styles.proTextWrap}>
+            <Text style={styles.proTitle}>Upgrade to Pro</Text>
+            <Text style={styles.proSub}>Unlock all premium features</Text>
+          </View>
+        </View>
+        <Ionicons name="chevron-forward" size={20} color={Colors.white} />
+      </TouchableOpacity>
+
       {/* App Info */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>About</Text>
@@ -221,6 +247,12 @@ const styles = StyleSheet.create({
 
   dangerBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   dangerText: { fontSize: 15, color: Colors.urgency, fontWeight: '500' },
+
+  proCard: { backgroundColor: Colors.primary, borderRadius: 16, padding: 20, marginBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  proContent: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  proTextWrap: {},
+  proTitle: { fontSize: 17, fontWeight: '700', color: Colors.white },
+  proSub: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 2 },
 
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
   infoLabel: { fontSize: 14, color: Colors.subText },
