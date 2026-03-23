@@ -23,7 +23,7 @@ export default function ExpensesScreen({ navigation }: { navigation: any }) {
         e.amount.toString().includes(q)
       );
     }
-    return list.sort((a, b) => b.createdAt - a.createdAt);
+    return [...list].sort((a, b) => b.createdAt - a.createdAt);
   }, [expenses, filterCat, search]);
 
   // Group by date

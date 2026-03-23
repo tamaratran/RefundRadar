@@ -190,6 +190,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEYS.budget, JSON.stringify(newBudget));
   }, []);
 
+  // Recalculate streak when budget.daily changes (e.g., user raises/lowers budget)
+  const budgetDailyRef = React.useRef(budget.daily);
+  useEffect(() => {
+    if (loaded && budgetDailyRef.current !== budget.daily) {
+      budgetDailyRef.current = budget.daily;
+      recalculateStreak(expenses);
+    }
+  }, [budget.daily, loaded, expenses, recalculateStreak]);
+
   const getTodayTotal = useCallback(() => {
     const today = getToday();
     return expenses.filter(e => e.date === today).reduce((sum, e) => sum + e.amount, 0);
