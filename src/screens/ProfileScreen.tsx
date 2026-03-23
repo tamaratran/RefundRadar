@@ -3,12 +3,14 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
+import { usePaywall } from '../hooks/useSuperwall';
 import { Colors } from '../theme/colors';
 import { formatCurrency } from '../data/models';
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const { purchases, claims, totalRefunded, totalSavingsAvailable, appStreak } = useApp();
+  const { showProPaywall } = usePaywall();
   const savingsAvailable = totalSavingsAvailable();
 
   return (
@@ -60,6 +62,16 @@ export default function ProfileScreen() {
             <Text style={styles.streakSubtext}>Keep checking for price drops!</Text>
           </View>
         </View>
+
+        {/* Upgrade to Pro */}
+        <TouchableOpacity style={styles.proButton} onPress={() => showProPaywall()} activeOpacity={0.85}>
+          <Ionicons name="diamond-outline" size={22} color="#FFFFFF" />
+          <View style={styles.proButtonTextContainer}>
+            <Text style={styles.proButtonTitle}>Upgrade to Pro</Text>
+            <Text style={styles.proButtonSubtitle}>Unlimited claims & auto-tracking</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#FFFFFF" />
+        </TouchableOpacity>
 
         {/* Menu Items */}
         <View style={styles.menuSection}>
@@ -130,6 +142,14 @@ const styles = StyleSheet.create({
   streakEmoji: { fontSize: 32 },
   streakText: { fontSize: 18, fontWeight: '700', color: Colors.darkText },
   streakSubtext: { fontSize: 13, color: Colors.subText, marginTop: 2 },
+
+  proButton: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: Colors.primary, borderRadius: 16, padding: 18, marginBottom: 24,
+  },
+  proButtonTextContainer: { flex: 1 },
+  proButtonTitle: { fontSize: 17, fontWeight: '700', color: '#FFFFFF' },
+  proButtonSubtitle: { fontSize: 13, color: '#FFFFFF', opacity: 0.8, marginTop: 2 },
 
   menuSection: { gap: 4 },
   menuItem: {

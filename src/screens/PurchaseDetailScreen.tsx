@@ -3,6 +3,7 @@ import { View, Text, ScrollView, TouchableOpacity, StyleSheet, Alert } from 'rea
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
+import { usePaywall } from '../hooks/useSuperwall';
 import { Colors } from '../theme/colors';
 import { Purchase, CATEGORY_COLORS, CATEGORY_ICONS, formatCurrency, daysAgo, getToday } from '../data/models';
 import { retailerPolicies } from '../data/retailers';
@@ -11,6 +12,7 @@ export default function PurchaseDetailScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const { addClaim, getClaimsForPurchase, deletePurchase } = useApp();
+  const { showClaimPaywall } = usePaywall();
 
   const purchase: Purchase = route.params?.purchase;
   if (!purchase) return null;
@@ -25,24 +27,28 @@ export default function PurchaseDetailScreen() {
   const handleFileClaim = () => {
     if (!purchase.priceDropDetected || !purchase.currentPrice) return;
 
-    const claim = {
-      id: `c-${Date.now()}`,
-      purchaseId: purchase.id,
-      retailer: purchase.retailer,
-      itemName: purchase.name,
-      originalPrice: purchase.purchasePrice,
-      newPrice: purchase.currentPrice,
-      refundAmount: purchase.savingsAmount,
-      status: 'submitted' as const,
-      submittedDate: getToday(),
+    const submitClaim = () => {
+      const claim = {
+        id: `c-${Date.now()}`,
+        purchaseId: purchase.id,
+        retailer: purchase.retailer,
+        itemName: purchase.name,
+        originalPrice: purchase.purchasePrice,
+        newPrice: purchase.currentPrice ?? purchase.purchasePrice,
+        refundAmount: purchase.savingsAmount,
+        status: 'submitted' as const,
+        submittedDate: getToday(),
+      };
+
+      addClaim(claim);
+      Alert.alert(
+        'Claim Filed!',
+        `Your refund claim for ${formatCurrency(purchase.savingsAmount)} has been submitted to ${purchase.retailer}.`,
+        [{ text: 'OK' }]
+      );
     };
 
-    addClaim(claim);
-    Alert.alert(
-      'Claim Filed!',
-      `Your refund claim for ${formatCurrency(purchase.savingsAmount)} has been submitted to ${purchase.retailer}.`,
-      [{ text: 'OK' }]
-    );
+    showClaimPaywall(submitClaim);
   };
 
   const handleDelete = () => {
