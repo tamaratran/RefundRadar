@@ -1,259 +1,242 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
 import { useApp } from '../context/AppContext';
 import { Colors } from '../theme/colors';
-import { CATEGORY_COLORS, CATEGORY_ICONS, PurchaseCategory, formatCurrency } from '../data/models';
+import { formatCurrency, getLast7Days, getShortDayLabel, CATEGORY_META, ExpenseCategory } from '../data/models';
 
-export default function DashboardScreen() {
-  const navigation = useNavigation<any>();
-  const {
-    purchases,
-    claims,
-    alerts,
-    getPurchasesWithDrops,
-    totalSavingsAvailable,
-    totalSavingsClaimed,
-    totalRefunded,
-    appStreak,
-    unreadAlertCount,
-  } = useApp();
+export default function DashboardScreen({ navigation }: { navigation: any }) {
+  const { getTodayTotal, getWeekTotal, getMonthTotal, budget, streak, getDailyTotals, getExpensesByCategory, expenses } = useApp();
 
-  const dropsAvailable = getPurchasesWithDrops();
-  const savingsAvailable = totalSavingsAvailable();
-  const savingsClaimed = totalSavingsClaimed();
-  const unreadCount = unreadAlertCount();
+  const todayTotal = getTodayTotal();
+  const weekTotal = getWeekTotal();
+  const monthTotal = getMonthTotal();
 
-  // Activity dots for past 7 days
-  const activityDots = (() => {
-    const dots: boolean[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const hadActivity = purchases.some(p => p.purchaseDate === dateStr) || claims.some(c => c.submittedDate === dateStr);
-      dots.push(hadActivity);
-    }
-    return dots;
-  })();
+  const dailyPercent = budget.daily > 0 ? Math.min(todayTotal / budget.daily, 1) : 0;
+  const weeklyPercent = budget.weekly > 0 ? Math.min(weekTotal / budget.weekly, 1) : 0;
+  const monthlyPercent = budget.monthly > 0 ? Math.min(monthTotal / budget.monthly, 1) : 0;
 
-  const orderedDayLabels = (() => {
-    const labels: string[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const day = d.getDay();
-      labels.push(['S', 'M', 'T', 'W', 'T', 'F', 'S'][day]);
-    }
-    return labels;
-  })();
+  const last7 = getLast7Days();
+  const dailyTotals = getDailyTotals(last7);
+  const maxDaily = Math.max(...dailyTotals, 1);
+
+  const categoryTotals = getExpensesByCategory();
+  const sortedCategories = (Object.entries(categoryTotals) as [ExpenseCategory, number][])
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+
+  const totalCategorySpend = sortedCategories.reduce((s, [, v]) => s + v, 0);
 
   return (
-    <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>RefundRadar</Text>
-            <Text style={styles.headerSubtitle}>Your money, tracked</Text>
-          </View>
-          <TouchableOpacity style={styles.profileButton} onPress={() => navigation.navigate('Profile')}>
-            <Ionicons name="person-circle-outline" size={32} color={Colors.darkText} />
-          </TouchableOpacity>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.greeting}>Good {getGreeting()}</Text>
+          <Text style={styles.subtitle}>Here&apos;s your spending today</Text>
         </View>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={() => navigation.navigate('AddExpense')}
+        >
+          <Ionicons name="add" size={24} color={Colors.white} />
+        </TouchableOpacity>
+      </View>
 
-        {/* Hero Savings Card */}
-        <View style={styles.heroCard}>
-          <View style={styles.heroTop}>
-            <View>
-              <Text style={styles.heroLabel}>Available Refunds</Text>
-              <Text style={styles.heroAmount}>{formatCurrency(savingsAvailable)}</Text>
-            </View>
-            <View style={styles.heroBadge}>
-              <Ionicons name="trending-down" size={20} color={Colors.primary} />
-              <Text style={styles.heroBadgeText}>{dropsAvailable.length} drops</Text>
-            </View>
-          </View>
-          <View style={styles.heroStats}>
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>{formatCurrency(totalRefunded)}</Text>
-              <Text style={styles.heroStatLabel}>Total Refunded</Text>
-            </View>
-            <View style={styles.heroDivider} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>{claims.length}</Text>
-              <Text style={styles.heroStatLabel}>Claims Filed</Text>
-            </View>
-            <View style={styles.heroDivider} />
-            <View style={styles.heroStat}>
-              <Text style={styles.heroStatValue}>{purchases.length}</Text>
-              <Text style={styles.heroStatLabel}>Tracked Items</Text>
-            </View>
+      {/* Today's Spending Card */}
+      <View style={styles.todayCard}>
+        <Text style={styles.todayLabel}>Today&apos;s Spending</Text>
+        <Text style={[styles.todayAmount, todayTotal > budget.daily ? styles.overBudget : null]}>
+          {formatCurrency(todayTotal)}
+        </Text>
+        <View style={styles.progressTrack}>
+          <View style={[styles.progressFill, { width: `${dailyPercent * 100}%`, backgroundColor: todayTotal > budget.daily ? Colors.urgency : Colors.primary }]} />
+        </View>
+        <Text style={styles.budgetLabel}>
+          {formatCurrency(Math.max(budget.daily - todayTotal, 0))} remaining of {formatCurrency(budget.daily)} daily budget
+        </Text>
+      </View>
+
+      {/* Streak */}
+      <View style={styles.streakCard}>
+        <View style={styles.streakLeft}>
+          <Ionicons name="flame" size={28} color={streak.count > 0 ? '#FF6D00' : Colors.disabledText} />
+          <View style={styles.streakText}>
+            <Text style={styles.streakCount}>{streak.count} day streak</Text>
+            <Text style={styles.streakBest}>Best: {streak.bestStreak} days</Text>
           </View>
         </View>
+        <Text style={styles.streakHint}>Stay under daily budget!</Text>
+      </View>
 
-        {/* Quick Actions */}
-        <View style={styles.quickActions}>
-          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('AddPurchase')}>
-            <View style={[styles.quickActionIcon, { backgroundColor: Colors.primarySoft }]}>
-              <Ionicons name="add-circle-outline" size={24} color={Colors.primary} />
+      {/* Weekly / Monthly Summary */}
+      <View style={styles.summaryRow}>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>This Week</Text>
+          <Text style={styles.summaryAmount}>{formatCurrency(weekTotal)}</Text>
+          <View style={styles.miniTrack}>
+            <View style={[styles.miniFill, { width: `${weeklyPercent * 100}%`, backgroundColor: weekTotal > budget.weekly ? Colors.urgency : Colors.primaryLight }]} />
+          </View>
+          <Text style={styles.summaryBudget}>of {formatCurrency(budget.weekly)}</Text>
+        </View>
+        <View style={styles.summaryCard}>
+          <Text style={styles.summaryLabel}>This Month</Text>
+          <Text style={styles.summaryAmount}>{formatCurrency(monthTotal)}</Text>
+          <View style={styles.miniTrack}>
+            <View style={[styles.miniFill, { width: `${monthlyPercent * 100}%`, backgroundColor: monthTotal > budget.monthly ? Colors.urgency : Colors.primaryLight }]} />
+          </View>
+          <Text style={styles.summaryBudget}>of {formatCurrency(budget.monthly)}</Text>
+        </View>
+      </View>
+
+      {/* 7-Day Bar Chart */}
+      <View style={styles.chartCard}>
+        <Text style={styles.chartTitle}>Last 7 Days</Text>
+        <View style={styles.barRow}>
+          {last7.map((day, i) => (
+            <View key={day} style={styles.barCol}>
+              <View style={styles.barTrack}>
+                <View
+                  style={[
+                    styles.bar,
+                    {
+                      height: `${(dailyTotals[i] / maxDaily) * 100}%`,
+                      backgroundColor: dailyTotals[i] > budget.daily ? Colors.urgency : Colors.primary,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={styles.barLabel}>{getShortDayLabel(day)}</Text>
+              <Text style={styles.barAmount}>${dailyTotals[i].toFixed(0)}</Text>
             </View>
-            <Text style={styles.quickActionText}>Add Purchase</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('MainTabs', { screen: 'Alerts' })}>
-            <View style={[styles.quickActionIcon, { backgroundColor: Colors.accentSoft }]}>
-              <Ionicons name="notifications-outline" size={24} color={Colors.accent} />
-              {unreadCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{unreadCount}</Text>
+          ))}
+        </View>
+      </View>
+
+      {/* Top Categories */}
+      {sortedCategories.length > 0 && (
+        <View style={styles.catCard}>
+          <Text style={styles.chartTitle}>Top Categories This Month</Text>
+          {sortedCategories.map(([cat, amount]) => {
+            const meta = CATEGORY_META[cat];
+            const pct = totalCategorySpend > 0 ? amount / totalCategorySpend : 0;
+            return (
+              <View key={cat} style={styles.catRow}>
+                <View style={[styles.catIcon, { backgroundColor: meta.color + '20' }]}>
+                  <Ionicons name={meta.icon as any} size={18} color={meta.color} />
                 </View>
-              )}
-            </View>
-            <Text style={styles.quickActionText}>Alerts</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.quickAction} onPress={() => navigation.navigate('MainTabs', { screen: 'Retailers' })}>
-            <View style={[styles.quickActionIcon, { backgroundColor: '#E8EAF6' }]}>
-              <Ionicons name="storefront-outline" size={24} color="#5C6BC0" />
-            </View>
-            <Text style={styles.quickActionText}>Policies</Text>
-          </TouchableOpacity>
+                <View style={styles.catInfo}>
+                  <View style={styles.catHeader}>
+                    <Text style={styles.catName}>{meta.label}</Text>
+                    <Text style={styles.catAmount}>{formatCurrency(amount)}</Text>
+                  </View>
+                  <View style={styles.catTrack}>
+                    <View style={[styles.catFill, { width: `${pct * 100}%`, backgroundColor: meta.color }]} />
+                  </View>
+                </View>
+              </View>
+            );
+          })}
         </View>
+      )}
 
-        {/* Recent Price Drops */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Recent Price Drops</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('MainTabs', { screen: 'Alerts' })}>
-              <Text style={styles.viewAllLink}>View All</Text>
+      {/* Recent Expenses */}
+      {expenses.length > 0 && (
+        <View style={styles.recentCard}>
+          <View style={styles.recentHeader}>
+            <Text style={styles.chartTitle}>Recent Expenses</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('ExpensesTab')}>
+              <Text style={styles.seeAll}>See All</Text>
             </TouchableOpacity>
           </View>
-          {dropsAvailable.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="pricetag-outline" size={36} color={Colors.subText} />
-              <Text style={styles.emptyText}>No price drops detected yet</Text>
-              <Text style={styles.emptySubtext}>Add purchases to start tracking</Text>
-            </View>
-          ) : (
-            dropsAvailable.slice(0, 4).map(purchase => (
-              <TouchableOpacity
-                key={purchase.id}
-                style={styles.dropRow}
-                onPress={() => navigation.navigate('PurchaseDetail', { purchase })}
-              >
-                <View style={[styles.dropIcon, { backgroundColor: (CATEGORY_COLORS[purchase.category] || Colors.subText) + '20' }]}>
-                  <Ionicons
-                    name={(CATEGORY_ICONS[purchase.category] || 'ellipsis-horizontal') as any}
-                    size={18}
-                    color={CATEGORY_COLORS[purchase.category] || Colors.subText}
-                  />
+          {expenses.slice(0, 5).map(exp => {
+            const meta = CATEGORY_META[exp.category];
+            return (
+              <View key={exp.id} style={styles.expenseRow}>
+                <View style={[styles.expIcon, { backgroundColor: meta.color + '20' }]}>
+                  <Ionicons name={meta.icon as any} size={16} color={meta.color} />
                 </View>
-                <View style={styles.dropInfo}>
-                  <Text style={styles.dropName} numberOfLines={1}>{purchase.name}</Text>
-                  <Text style={styles.dropRetailer}>{purchase.retailer}</Text>
+                <View style={styles.expInfo}>
+                  <Text style={styles.expNote}>{exp.note || meta.label}</Text>
+                  <Text style={styles.expDate}>{exp.date}</Text>
                 </View>
-                <View style={styles.dropSavings}>
-                  <Text style={styles.dropSavingsAmount}>-{formatCurrency(purchase.savingsAmount)}</Text>
-                  <Text style={styles.dropSavingsLabel}>save</Text>
-                </View>
-              </TouchableOpacity>
-            ))
-          )}
-        </View>
-
-        {/* Streak Card */}
-        <View style={styles.card}>
-          <View style={styles.streakHeader}>
-            <View style={styles.streakTitleRow}>
-              <Text style={styles.streakFire}>🔥</Text>
-              <Text style={styles.streakNumber}>{appStreak}</Text>
-              <Text style={styles.streakDayLabel}>day streak</Text>
-            </View>
-            <Text style={styles.streakMessage}>Keep tracking!</Text>
-          </View>
-          <View style={styles.dotGrid}>
-            {activityDots.map((active, i) => (
-              <View key={i} style={styles.dotColumn}>
-                <View style={[styles.actDot, active ? { backgroundColor: Colors.success } : { backgroundColor: Colors.surfaceLight }]} />
-                <Text style={styles.dotLabel}>{orderedDayLabels[i]}</Text>
+                <Text style={styles.expAmount}>-{formatCurrency(exp.amount)}</Text>
               </View>
-            ))}
-          </View>
+            );
+          })}
         </View>
+      )}
 
-        <View style={{ height: 100 }} />
-      </ScrollView>
-    </View>
+      <View style={{ height: 30 }} />
+    </ScrollView>
   );
+}
+
+function getGreeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Morning';
+  if (h < 17) return 'Afternoon';
+  return 'Evening';
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  scrollContent: { paddingHorizontal: 20, paddingTop: 60 },
+  content: { padding: 20, paddingTop: 60 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  headerTitle: { fontSize: 28, fontWeight: '800', color: Colors.darkText },
-  headerSubtitle: { fontSize: 14, color: Colors.subText, marginTop: 2 },
-  profileButton: { padding: 4 },
+  greeting: { fontSize: 28, fontWeight: '700', color: Colors.darkText },
+  subtitle: { fontSize: 15, color: Colors.subText, marginTop: 2 },
+  addBtn: { width: 44, height: 44, borderRadius: 22, backgroundColor: Colors.primary, justifyContent: 'center', alignItems: 'center' },
 
-  heroCard: {
-    backgroundColor: Colors.surface, borderRadius: 20, padding: 24, marginBottom: 16,
-    borderWidth: 1, borderColor: Colors.primary + '30',
-  },
-  heroTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
-  heroLabel: { fontSize: 14, fontWeight: '600', color: Colors.subText },
-  heroAmount: { fontSize: 40, fontWeight: '900', color: Colors.primary, marginTop: 4, letterSpacing: -1 },
-  heroBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: Colors.primarySoft,
-    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12,
-  },
-  heroBadgeText: { fontSize: 13, fontWeight: '600', color: Colors.primary },
-  heroStats: { flexDirection: 'row', alignItems: 'center' },
-  heroStat: { flex: 1, alignItems: 'center' },
-  heroStatValue: { fontSize: 18, fontWeight: '800', color: Colors.darkText },
-  heroStatLabel: { fontSize: 11, color: Colors.subText, marginTop: 4, fontWeight: '500' },
-  heroDivider: { width: 1, height: 36, backgroundColor: Colors.border },
+  todayCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 12 },
+  todayLabel: { fontSize: 14, color: Colors.subText, marginBottom: 4 },
+  todayAmount: { fontSize: 36, fontWeight: '700', color: Colors.darkText },
+  overBudget: { color: Colors.urgency },
+  progressTrack: { height: 8, backgroundColor: Colors.border, borderRadius: 4, marginTop: 12 },
+  progressFill: { height: 8, borderRadius: 4 },
+  budgetLabel: { fontSize: 13, color: Colors.subText, marginTop: 8 },
 
-  quickActions: { flexDirection: 'row', gap: 12, marginBottom: 16 },
-  quickAction: { flex: 1, alignItems: 'center', gap: 8 },
-  quickActionIcon: {
-    width: 56, height: 56, borderRadius: 18, justifyContent: 'center', alignItems: 'center',
-  },
-  quickActionText: { fontSize: 12, fontWeight: '600', color: Colors.subText },
-  badge: {
-    position: 'absolute', top: -4, right: -4, backgroundColor: Colors.urgency,
-    width: 18, height: 18, borderRadius: 9, justifyContent: 'center', alignItems: 'center',
-  },
-  badgeText: { fontSize: 10, fontWeight: '700', color: '#FFFFFF' },
+  streakCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.surface, borderRadius: 16, padding: 16, marginBottom: 12 },
+  streakLeft: { flexDirection: 'row', alignItems: 'center' },
+  streakText: { marginLeft: 10 },
+  streakCount: { fontSize: 16, fontWeight: '600', color: Colors.darkText },
+  streakBest: { fontSize: 12, color: Colors.subText },
+  streakHint: { fontSize: 12, color: Colors.subText },
 
-  card: {
-    backgroundColor: Colors.surface, borderRadius: 18, padding: 20, marginBottom: 16,
-    borderWidth: 1, borderColor: Colors.border,
-  },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  cardTitle: { fontSize: 17, fontWeight: '700', color: Colors.darkText },
-  viewAllLink: { fontSize: 14, fontWeight: '600', color: Colors.primary },
+  summaryRow: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  summaryCard: { flex: 1, backgroundColor: Colors.surface, borderRadius: 16, padding: 16 },
+  summaryLabel: { fontSize: 13, color: Colors.subText },
+  summaryAmount: { fontSize: 22, fontWeight: '700', color: Colors.darkText, marginTop: 4 },
+  miniTrack: { height: 6, backgroundColor: Colors.border, borderRadius: 3, marginTop: 8 },
+  miniFill: { height: 6, borderRadius: 3 },
+  summaryBudget: { fontSize: 12, color: Colors.subText, marginTop: 6 },
 
-  emptyState: { alignItems: 'center', paddingVertical: 24, gap: 8 },
-  emptyText: { fontSize: 14, color: Colors.subText, fontWeight: '500' },
-  emptySubtext: { fontSize: 12, color: Colors.sectionLabel },
+  chartCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 12 },
+  chartTitle: { fontSize: 16, fontWeight: '600', color: Colors.darkText, marginBottom: 16 },
+  barRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 120 },
+  barCol: { alignItems: 'center', flex: 1 },
+  barTrack: { width: 20, height: 100, justifyContent: 'flex-end', borderRadius: 10, overflow: 'hidden', backgroundColor: Colors.border },
+  bar: { width: 20, borderRadius: 10, minHeight: 4 },
+  barLabel: { fontSize: 11, color: Colors.subText, marginTop: 4 },
+  barAmount: { fontSize: 10, color: Colors.subText, marginTop: 1 },
 
-  dropRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: Colors.border },
-  dropIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  dropInfo: { flex: 1, marginLeft: 12 },
-  dropName: { fontSize: 14, fontWeight: '600', color: Colors.darkText },
-  dropRetailer: { fontSize: 12, color: Colors.subText, marginTop: 2 },
-  dropSavings: { alignItems: 'flex-end' },
-  dropSavingsAmount: { fontSize: 15, fontWeight: '700', color: Colors.success },
-  dropSavingsLabel: { fontSize: 10, color: Colors.subText, marginTop: 2 },
+  catCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 12 },
+  catRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  catIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
+  catInfo: { flex: 1, marginLeft: 12 },
+  catHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  catName: { fontSize: 14, color: Colors.darkText, fontWeight: '500' },
+  catAmount: { fontSize: 14, color: Colors.darkText, fontWeight: '600' },
+  catTrack: { height: 6, backgroundColor: Colors.border, borderRadius: 3 },
+  catFill: { height: 6, borderRadius: 3 },
 
-  streakHeader: { marginBottom: 16 },
-  streakTitleRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  streakFire: { fontSize: 24 },
-  streakNumber: { fontSize: 32, fontWeight: '900', color: Colors.darkText },
-  streakDayLabel: { fontSize: 16, color: Colors.subText, fontWeight: '600' },
-  streakMessage: { fontSize: 14, color: Colors.success, fontWeight: '600', marginTop: 4 },
-  dotGrid: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 8 },
-  dotColumn: { alignItems: 'center', gap: 6 },
-  actDot: { width: 28, height: 28, borderRadius: 14 },
-  dotLabel: { fontSize: 11, color: Colors.subText, fontWeight: '600' },
+  recentCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 20, marginBottom: 12 },
+  recentHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  seeAll: { fontSize: 14, color: Colors.primary, fontWeight: '500' },
+  expenseRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  expIcon: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  expInfo: { flex: 1, marginLeft: 10 },
+  expNote: { fontSize: 14, color: Colors.darkText, fontWeight: '500' },
+  expDate: { fontSize: 12, color: Colors.subText, marginTop: 1 },
+  expAmount: { fontSize: 14, color: Colors.urgency, fontWeight: '600' },
 });

@@ -2,7 +2,8 @@
   "expo": {
     "name": "RefundRadar",
     "slug": "refundradar",
-    "version": "1.0.0",
+    "version": "2.0.0",
+    "description": "Track your spending, set budget goals, and build streaks to stay on track with your finances.",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -14,7 +15,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.refundradar.ios",
-      "buildNumber": "1",
+      "buildNumber": "3",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -45,8 +46,7 @@
     "extra": {
       "eas": {
         "projectId": "c5f55101-7b9c-449d-8360-a94665dc82c7"
-      },
-      "superwallIosKey": "pk_5e074e74d91b5cf759b2d610dea394fbda47e32f1fa36d62"
+      }
     }
   }
 }
