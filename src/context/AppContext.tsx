@@ -133,20 +133,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
           return newStreak;
         }
         // Already checked today and was under — keep current streak
-        // But if it was previously reset today, restore it
-        if (prevStreak.count === 0 && prevStreak.lastDate === today) {
+        // But if it was previously reset today (count=0), restore the pre-reset count
+        if (prevStreak.count === 0 && prevStreak.lastDate === today && prevStreak.preResetCount != null) {
+          const restoredCount = prevStreak.preResetCount;
           const newStreak: StreakData = {
-            count: 1,
+            count: restoredCount,
             lastDate: today,
-            bestStreak: Math.max(prevStreak.bestStreak, 1),
+            bestStreak: Math.max(prevStreak.bestStreak, restoredCount),
           };
           AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(newStreak));
           return newStreak;
         }
         return prevStreak;
       }
-      // Over budget today
-      const reset: StreakData = { count: 0, lastDate: today, bestStreak: prevStreak.bestStreak };
+      // Over budget today — reset but preserve current count for possible restoration
+      const reset: StreakData = {
+        count: 0,
+        lastDate: today,
+        bestStreak: prevStreak.bestStreak,
+        preResetCount: prevStreak.count > 0 ? prevStreak.count : prevStreak.preResetCount,
+      };
       AsyncStorage.setItem(STORAGE_KEYS.streak, JSON.stringify(reset));
       return reset;
     });

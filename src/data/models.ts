@@ -29,6 +29,7 @@ export interface StreakData {
   count: number;
   lastDate: string;
   bestStreak: number;
+  preResetCount?: number; // preserved when streak is reset so it can be restored if user corrects
 }
 
 export const DEFAULT_BUDGET: BudgetGoal = {
