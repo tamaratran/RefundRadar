@@ -54,6 +54,7 @@ export default function SettingsScreen() {
     );
   };
 
+
   const totalExpenses = expenses.length;
   const totalSpent = expenses.reduce((s, e) => s + e.amount, 0);
 
@@ -170,6 +171,7 @@ export default function SettingsScreen() {
         </TouchableOpacity>
       </View>
 
+
       {/* App Info */}
       <View style={styles.card}>
         <Text style={styles.cardTitle}>About</Text>
@@ -221,6 +223,7 @@ const styles = StyleSheet.create({
 
   dangerBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 8 },
   dangerText: { fontSize: 15, color: Colors.urgency, fontWeight: '500' },
+
 
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8 },
   infoLabel: { fontSize: 14, color: Colors.subText },
