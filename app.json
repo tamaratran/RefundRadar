@@ -1,0 +1,53 @@
+{
+  "expo": {
+    "name": "RefundRadar",
+    "slug": "refundradar",
+    "version": "1.1.0",
+    "description": "Track your spending, set budget goals, and build streaks to stay on track with your finances.",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.refundradar.ios",
+      "buildNumber": "13",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#E8F5E9"
+      }
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "minSdkVersion": 21
+          },
+          "ios": {
+            "deploymentTarget": "15.1"
+          }
+        }
+      ]
+    ],
+    "owner": "refundradars-organization",
+    "extra": {
+      "eas": {
+        "projectId": "c5f55101-7b9c-449d-8360-a94665dc82c7"
+      },
+      "superwallApiKey": "pk_5e074e74d91b5cf759b2d610dea394fbda47e32f1fa36d62"
+    }
+  }
+}
