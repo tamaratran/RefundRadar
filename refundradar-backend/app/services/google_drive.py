@@ -115,7 +115,7 @@ def search_files(query_text: str) -> list[dict[str, Any]]:
         return []
 
     service = build("drive", "v3", credentials=creds)
-    escaped_query = query_text.replace("'", "\\'")
+    escaped_query = query_text.replace("\\", "\\\\").replace("'", "\\'")
     query = f"name contains '{escaped_query}' and trashed=false"
 
     results = service.files().list(

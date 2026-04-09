@@ -97,6 +97,7 @@ function App() {
     setUploadStatus('')
 
     let totalImported = 0
+    const errors: string[] = []
     for (let i = 0; i < files.length; i++) {
       const file = files[i]
       const formData = new FormData()
@@ -111,14 +112,18 @@ function App() {
         if (res.ok) {
           totalImported += data.count
         } else {
-          setUploadStatus(prev => prev + `\nError with ${file.name}: ${data.detail}`)
+          errors.push(`Error with ${file.name}: ${data.detail}`)
         }
       } catch {
-        setUploadStatus(prev => prev + `\nError uploading ${file.name}`)
+        errors.push(`Error uploading ${file.name}`)
       }
     }
 
-    setUploadStatus(`Imported ${totalImported} transactions from ${files.length} file(s)`)
+    let statusMsg = `Imported ${totalImported} transactions from ${files.length} file(s)`
+    if (errors.length > 0) {
+      statusMsg += '\n' + errors.join('\n')
+    }
+    setUploadStatus(statusMsg)
     setLoading(false)
     await fetchData()
     e.target.value = ''

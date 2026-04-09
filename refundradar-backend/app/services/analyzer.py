@@ -34,9 +34,11 @@ def _detect_subscription_overcharges(transactions: list[dict[str, Any]]) -> list
         if len(sorted_txns) < 2:
             continue
 
-        amounts = [abs(t["amount"]) for t in sorted_txns if t["amount"] < 0]
-        if len(amounts) < 2:
+        debit_txns = [(t, abs(t["amount"])) for t in sorted_txns if t["amount"] < 0]
+        if len(debit_txns) < 2:
             continue
+
+        amounts = [amt for _, amt in debit_txns]
 
         # Check if the most recent charge is higher than the previous average
         recent_amount = amounts[-1]
@@ -44,8 +46,9 @@ def _detect_subscription_overcharges(transactions: list[dict[str, Any]]) -> list
 
         if recent_amount > previous_avg * 1.05:  # 5% threshold
             increase = recent_amount - previous_avg
+            recent_txn = debit_txns[-1][0]
             opportunities.append({
-                "transaction_id": sorted_txns[-1].get("id"),
+                "transaction_id": recent_txn.get("id"),
                 "type": "subscription_overcharge",
                 "description": f"{merchant} increased from ${previous_avg:.2f} to ${recent_amount:.2f}/month",
                 "potential_savings": round(increase * 12, 2),  # Annual savings
