@@ -40,11 +40,11 @@ async def list_opportunities(
     opportunities = []
     for row in rows:
         details = None
-        if row[8]:
+        if row[7]:
             try:
-                details = json.loads(row[8])
+                details = json.loads(row[7])
             except (json.JSONDecodeError, TypeError):
-                details = row[8]
+                details = row[7]
 
         opportunities.append({
             "id": row[0],
@@ -55,8 +55,8 @@ async def list_opportunities(
             "status": row[5],
             "confidence": row[6],
             "details": details,
-            "claim_template": row[9] if len(row) > 9 else None,
-            "created_at": row[10] if len(row) > 10 else None,
+            "claim_template": row[8] if len(row) > 8 else None,
+            "created_at": row[9] if len(row) > 9 else None,
         })
 
     return {"opportunities": opportunities, "total": len(opportunities)}
@@ -181,5 +181,5 @@ async def get_claim_template(
         "opportunity_id": row[0],
         "type": row[2],
         "description": row[3],
-        "claim_template": row[9] if len(row) > 9 else "",
+        "claim_template": row[8] if len(row) > 8 else "",
     }

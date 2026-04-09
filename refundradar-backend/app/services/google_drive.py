@@ -1,5 +1,4 @@
 """Google Drive integration for scanning bank statements."""
-import os
 import json
 from typing import Any, Optional
 
@@ -116,7 +115,8 @@ def search_files(query_text: str) -> list[dict[str, Any]]:
         return []
 
     service = build("drive", "v3", credentials=creds)
-    query = f"name contains '{query_text}' and trashed=false"
+    escaped_query = query_text.replace("'", "\\'")
+    query = f"name contains '{escaped_query}' and trashed=false"
 
     results = service.files().list(
         q=query,
