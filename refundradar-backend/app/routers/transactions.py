@@ -157,5 +157,6 @@ async def clear_transactions(db: aiosqlite.Connection = Depends(get_db)):
     """Clear all transactions."""
     await db.execute("DELETE FROM transactions")
     await db.execute("DELETE FROM refund_opportunities")
+    await db.execute("DELETE FROM drive_sync")
     await db.commit()
     return {"message": "All transactions and opportunities cleared"}
